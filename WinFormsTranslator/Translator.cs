@@ -61,7 +61,6 @@ namespace WinFormsTranslator
             {
                 string translated = "";
                 InitLanguage();
-                ToolStripSeparator s;
                 IEnumerable<Control> controls = GetSelfAndChildrenRecursive(parent);
                 foreach (Control c in controls)
                 {
@@ -78,8 +77,16 @@ namespace WinFormsTranslator
                         ComboBox cb = (ComboBox)c;
                         for (int i = 0; i < cb.Items.Count; i++)
                         {
-                            if (TryTranslate((string)cb.Items[i], out translated))
-                                cb.Items[i] = translated;
+                            if (cb.Items[i] is string)
+                            {
+                                if (TryTranslate((string)(cb.Items[i]), out translated))
+                                    cb.Items[i] = translated;
+                            }
+                            else if (cb.Items[i] is ITranslatable)
+                            {
+                                if (TryTranslate(((ITranslatable)(cb.Items[i])).TranslatableText, out translated))
+                                    ((ITranslatable)(cb.Items[i])).TranslatableText = translated;
+                            }
                         }
                     }
                     else if (c is ListView)
