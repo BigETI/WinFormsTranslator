@@ -5,14 +5,34 @@ using System.Reflection;
 using System.Resources;
 using System.Windows.Forms;
 
+/// <summary>
+/// Windows forms translator namespace
+/// </summary>
 namespace WinFormsTranslator
 {
+    /// <summary>
+    /// Translator class
+    /// </summary>
     public class Translator
     {
+        /// <summary>
+        /// Language resource manager
+        /// </summary>
         private static ResourceManager languageResourceManager = null;
 
+        /// <summary>
+        /// Fallback language resource manager
+        /// </summary>
+        private static ResourceManager fallbackLanguageResourceManager = null;
+
+        /// <summary>
+        /// Translator interface
+        /// </summary>
         private static ITranslatorInterface translatorInterface;
 
+        /// <summary>
+        /// Translator interface
+        /// </summary>
         public static ITranslatorInterface TranslatorInterface
         {
             get
@@ -26,23 +46,48 @@ namespace WinFormsTranslator
             }
         }
 
+        /// <summary>
+        /// Initialize language
+        /// </summary>
         private static void InitLanguage()
         {
-            if (languageResourceManager == null)
+            if (translatorInterface != null)
             {
-                try
+                if (languageResourceManager == null)
                 {
-                    CultureInfo ci = new CultureInfo(translatorInterface.Language);
-                    Assembly a = Assembly.Load(translatorInterface.AssemblyName);
-                    languageResourceManager = new ResourceManager(translatorInterface.AssemblyName + ".Languages." + translatorInterface.Language, a);
+                    try
+                    {
+                        CultureInfo ci = new CultureInfo(translatorInterface.Language);
+                        Assembly a = Assembly.Load(translatorInterface.AssemblyName);
+                        languageResourceManager = new ResourceManager(translatorInterface.AssemblyName + ".Languages." + translatorInterface.Language, a);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.Error.WriteLine(e.Message);
+                    }
                 }
-                catch (Exception e)
+                if (fallbackLanguageResourceManager == null)
                 {
-                    Console.Error.WriteLine(e.Message);
+                    try
+                    {
+                        CultureInfo ci = new CultureInfo(translatorInterface.FallbackLanguage);
+                        Assembly a = Assembly.Load(translatorInterface.AssemblyName);
+                        fallbackLanguageResourceManager = new ResourceManager(translatorInterface.AssemblyName + ".Languages." + translatorInterface.FallbackLanguage, a);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.Error.WriteLine(e.Message);
+                    }
                 }
             }
         }
 
+        /// <summary>
+        /// Try translatie
+        /// </summary>
+        /// <param name="input">Input</param>
+        /// <param name="output">Output</param>
+        /// <returns>Success</returns>
         public static bool TryTranslate(string input, out string output)
         {
             bool ret = false;
@@ -55,6 +100,10 @@ namespace WinFormsTranslator
             return ret;
         }
 
+        /// <summary>
+        /// Load language
+        /// </summary>
+        /// <param name="parent">Parent control</param>
         private static void LoadLanguage(Control parent)
         {
             try
@@ -119,25 +168,60 @@ namespace WinFormsTranslator
             }
         }
 
+        /// <summary>
+        /// Get translation
+        /// </summary>
+        /// <param name="key">Key</param>
+        /// <returns>Value</returns>
         public static string GetTranslation(string key)
         {
-            string ret = "{$" + key + "$}";
+            string ret = null;
             if (languageResourceManager != null)
             {
                 try
                 {
                     ret = languageResourceManager.GetString(key);
-                    if (ret == null)
-                        ret = "{$" + key + "$}";
+                }
+                catch (Exception e)
+                {
+                    Console.Error.WriteLine(e.Message);
+                }
+                if (ret == null)
+                {
+                    if (fallbackLanguageResourceManager != null)
+                    {
+                        try
+                        {
+                            ret = fallbackLanguageResourceManager.GetString(key);
+                        }
+                        catch (Exception e)
+                        {
+                            Console.Error.WriteLine(e.Message);
+                        }
+                    }
+                }
+            }
+            else if (fallbackLanguageResourceManager != null)
+            {
+                try
+                {
+                    ret = fallbackLanguageResourceManager.GetString(key);
                 }
                 catch (Exception e)
                 {
                     Console.Error.WriteLine(e.Message);
                 }
             }
+            if (ret == null)
+                ret = "{$" + key + "$}";
             return ret;
         }
 
+        /// <summary>
+        /// Change language
+        /// </summary>
+        /// <param name="language">Language</param>
+        /// <returns>Success</returns>
         public static bool ChangeLanguage(Language language)
         {
             bool ret = false;
@@ -150,12 +234,21 @@ namespace WinFormsTranslator
             return ret;
         }
 
+        /// <summary>
+        /// Load translation
+        /// </summary>
+        /// <param name="parent">Parent control</param>
         public static void LoadTranslation(Control parent)
         {
             if (translatorInterface != null)
                 LoadLanguage(parent);
         }
 
+        /// <summary>
+        /// Get self and children recursive
+        /// </summary>
+        /// <param name="parent">Parent control</param>
+        /// <returns>All children recursive</returns>
         public static IEnumerable<Control> GetSelfAndChildrenRecursive(Control parent)
         {
             List<Control> ret = new List<Control>();
@@ -168,6 +261,11 @@ namespace WinFormsTranslator
             return ret;
         }
 
+        /// <summary>
+        /// Get all strip menu items recursive
+        /// </summary>
+        /// <param name="parent">Parent tool strip menu item</param>
+        /// <returns>All tool strip menu items children recursive</returns>
         public static IEnumerable<ToolStripMenuItem> GetAllToolStripMenuItemsRecursive(ToolStripMenuItem parent)
         {
             List<ToolStripMenuItem> ret = new List<ToolStripMenuItem>();
@@ -183,6 +281,11 @@ namespace WinFormsTranslator
             return ret;
         }
 
+        /// <summary>
+        /// Get all tool strip menu items recursive
+        /// </summary>
+        /// <param name="parent">Parent context menu strip</param>
+        /// <returns>All tool strip menu item children recursive</returns>
         public static IEnumerable<ToolStripMenuItem> GetAllToolStripMenuItemsRecursive(ContextMenuStrip parent)
         {
             List<ToolStripMenuItem> ret = new List<ToolStripMenuItem>();
@@ -197,6 +300,12 @@ namespace WinFormsTranslator
             return ret;
         }
 
+        /// <summary>
+        /// Enumerator to combo box
+        /// </summary>
+        /// <typeparam name="T">Enumerator type</typeparam>
+        /// <param name="comboBox">Combo box</param>
+        /// <param name="exclusions">Exclusions</param>
         public static void EnumToComboBox<T>(ComboBox comboBox, T[] exclusions = null)
         {
             comboBox.Items.Clear();
@@ -220,11 +329,17 @@ namespace WinFormsTranslator
             }
         }
 
-        public static void EnumerableToComboBox<T>(ComboBox comboBox, IEnumerable<T> arr)
+        /// <summary>
+        /// Enumerable to combo box
+        /// </summary>
+        /// <typeparam name="T">Type to enumerate</typeparam>
+        /// <param name="comboBox">Combo box</param>
+        /// <param name="items">Items</param>
+        public static void EnumerableToComboBox<T>(ComboBox comboBox, IEnumerable<T> items)
         {
             comboBox.Items.Clear();
-            foreach (var e in arr)
-                comboBox.Items.Add(e);
+            foreach (var item in items)
+                comboBox.Items.Add(item);
         }
     }
 }

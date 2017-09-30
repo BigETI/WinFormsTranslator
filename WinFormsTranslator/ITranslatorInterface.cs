@@ -10,6 +10,11 @@ namespace WinFormsTranslator
             set;
         }
 
+        string FallbackLanguage
+        {
+            get;
+        }
+
         string AssemblyName
         {
             get;
