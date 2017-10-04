@@ -13,17 +13,17 @@ namespace WinFormsTranslator
     /// <summary>
     /// Translator class
     /// </summary>
-    public class Translator
+    public static class Translator
     {
         /// <summary>
         /// Language resource manager
         /// </summary>
-        private static ResourceManager languageResourceManager = null;
+        private static ResourceManager languageResourceManager;
 
         /// <summary>
         /// Fallback language resource manager
         /// </summary>
-        private static ResourceManager fallbackLanguageResourceManager = null;
+        private static ResourceManager fallbackLanguageResourceManager;
 
         /// <summary>
         /// Translator interface
@@ -42,7 +42,9 @@ namespace WinFormsTranslator
             set
             {
                 if (value != null)
+                {
                     translatorInterface = value;
+                }
             }
         }
 
@@ -57,7 +59,6 @@ namespace WinFormsTranslator
                 {
                     try
                     {
-                        CultureInfo ci = new CultureInfo(translatorInterface.Language);
                         Assembly a = Assembly.Load(translatorInterface.AssemblyName);
                         languageResourceManager = new ResourceManager(translatorInterface.AssemblyName + ".Languages." + translatorInterface.Language, a);
                     }
@@ -70,7 +71,6 @@ namespace WinFormsTranslator
                 {
                     try
                     {
-                        CultureInfo ci = new CultureInfo(translatorInterface.FallbackLanguage);
                         Assembly a = Assembly.Load(translatorInterface.AssemblyName);
                         fallbackLanguageResourceManager = new ResourceManager(translatorInterface.AssemblyName + ".Languages." + translatorInterface.FallbackLanguage, a);
                     }
@@ -114,12 +114,16 @@ namespace WinFormsTranslator
                 foreach (Control c in controls)
                 {
                     if (TryTranslate(c.Text, out translated))
+                    {
                         c.Text = translated;
+                    }
                     IEnumerable<ToolStripMenuItem> tsmis = GetAllToolStripMenuItemsRecursive(c.ContextMenuStrip);
                     foreach (ToolStripMenuItem tsmi in tsmis)
                     {
                         if (TryTranslate(tsmi.Text, out translated))
+                        {
                             tsmi.Text = translated;
+                        }
                     }
                     if (c is ComboBox)
                     {
@@ -129,12 +133,16 @@ namespace WinFormsTranslator
                             if (cb.Items[i] is string)
                             {
                                 if (TryTranslate((string)(cb.Items[i]), out translated))
+                                {
                                     cb.Items[i] = translated;
+                                }
                             }
                             else if (cb.Items[i] is ITranslatable)
                             {
                                 if (TryTranslate(((ITranslatable)(cb.Items[i])).TranslatableText, out translated))
+                                {
                                     ((ITranslatable)(cb.Items[i])).TranslatableText = translated;
+                                }
                             }
                         }
                     }
@@ -144,12 +152,16 @@ namespace WinFormsTranslator
                         foreach (ColumnHeader col in lv.Columns)
                         {
                             if (TryTranslate(col.Text, out translated))
+                            {
                                 col.Text = translated;
+                            }
                         }
                         foreach (ListViewGroup grp in lv.Groups)
                         {
                             if (TryTranslate(grp.Header, out translated))
+                            {
                                 grp.Header = translated;
+                            }
                         }
                     }
                     else if (c is ToolStrip)
@@ -157,7 +169,9 @@ namespace WinFormsTranslator
                         foreach (ToolStripItem tsi in ((ToolStrip)c).Items)
                         {
                             if (TryTranslate(tsi.Text, out translated))
+                            {
                                 tsi.Text = translated;
+                            }
                         }
                     }
                 }
@@ -213,7 +227,9 @@ namespace WinFormsTranslator
                 }
             }
             if (ret == null)
+            {
                 ret = "{$" + key + "$}";
+            }
             return ret;
         }
 
@@ -241,7 +257,9 @@ namespace WinFormsTranslator
         public static void LoadTranslation(Control parent)
         {
             if (translatorInterface != null)
+            {
                 LoadLanguage(parent);
+            }
         }
 
         /// <summary>
@@ -255,7 +273,9 @@ namespace WinFormsTranslator
             if (parent != null)
             {
                 foreach (Control child in parent.Controls)
+                {
                     ret.AddRange(GetSelfAndChildrenRecursive(child));
+                }
                 ret.Add(parent);
             }
             return ret;
@@ -274,7 +294,9 @@ namespace WinFormsTranslator
                 foreach (ToolStripItem child in parent.DropDownItems)
                 {
                     if (child is ToolStripMenuItem)
+                    {
                         ret.AddRange(GetAllToolStripMenuItemsRecursive((ToolStripMenuItem)child));
+                    }
                 }
                 ret.Add(parent);
             }
@@ -294,7 +316,9 @@ namespace WinFormsTranslator
                 foreach (ToolStripItem child in parent.Items)
                 {
                     if (child is ToolStripMenuItem)
+                    {
                         ret.AddRange(GetAllToolStripMenuItemsRecursive((ToolStripMenuItem)child));
+                    }
                 }
             }
             return ret;
@@ -325,7 +349,9 @@ namespace WinFormsTranslator
                     }
                 }
                 if (s)
+                {
                     comboBox.Items.Add(e);
+                }
             }
         }
 
@@ -339,7 +365,9 @@ namespace WinFormsTranslator
         {
             comboBox.Items.Clear();
             foreach (var item in items)
+            {
                 comboBox.Items.Add(item);
+            }
         }
     }
 }
