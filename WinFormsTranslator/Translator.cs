@@ -329,8 +329,18 @@ namespace WinFormsTranslator
         /// </summary>
         /// <typeparam name="T">Enumerator type</typeparam>
         /// <param name="comboBox">Combo box</param>
+        public static void EnumToComboBox<T>(ComboBox comboBox)
+        {
+            EnumToComboBox<T>(comboBox, null);
+        }
+
+        /// <summary>
+        /// Enumerator to combo box
+        /// </summary>
+        /// <typeparam name="T">Enumerator type</typeparam>
+        /// <param name="comboBox">Combo box</param>
         /// <param name="exclusions">Exclusions</param>
-        public static void EnumToComboBox<T>(ComboBox comboBox, T[] exclusions = null)
+        public static void EnumToComboBox<T>(ComboBox comboBox, T[] exclusions)
         {
             comboBox.Items.Clear();
             Array arr = Enum.GetValues(typeof(T));
