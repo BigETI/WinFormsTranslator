@@ -51,7 +51,7 @@ namespace WinFormsTranslator
         /// <summary>
         /// Initialize language
         /// </summary>
-        private static void InitLanguage()
+        public static void InitLanguage()
         {
             if (translatorInterface != null)
             {
