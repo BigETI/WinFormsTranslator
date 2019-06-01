@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.Reflection;
-using System.Resources;
+using System.IO;
+using System.Runtime.Serialization.Json;
 using System.Windows.Forms;
 
 /// <summary>
@@ -13,164 +12,213 @@ namespace WinFormsTranslator
     /// <summary>
     /// Translator class
     /// </summary>
-    public static class Translator
+    public class Translator
     {
         /// <summary>
-        /// Language resource manager
+        /// Serializer
         /// </summary>
-        private static ResourceManager languageResourceManager;
+        private static readonly DataContractJsonSerializer serializer = new DataContractJsonSerializer(typeof(LanguageData), new DataContractJsonSerializerSettings { UseSimpleDictionaryFormat = true });
 
         /// <summary>
-        /// Fallback language resource manager
+        /// Languages directory
         /// </summary>
-        private static ResourceManager fallbackLanguageResourceManager;
+        private static readonly string languagesDirectory = "./languages";
 
         /// <summary>
-        /// Translator interface
+        /// Languages
         /// </summary>
-        private static ITranslatorInterface translatorInterface;
+        private Dictionary<string, LanguageData> languages;
 
         /// <summary>
-        /// Translator interface
+        /// Languages
         /// </summary>
-        public static ITranslatorInterface TranslatorInterface
+        public IReadOnlyDictionary<string, LanguageData> Languages
         {
             get
             {
-                return translatorInterface;
-            }
-            set
-            {
-                if (value != null)
-                {
-                    translatorInterface = value;
-                }
+                InitLanguages();
+                return languages;
             }
         }
 
         /// <summary>
-        /// Initialize language
+        /// Selected culture
         /// </summary>
-        public static void InitLanguage()
+        public string Culture { get; private set; } = "en-GB";
+
+        /// <summary>
+        /// Fallback culture
+        /// </summary>
+        public string FallbackCulture { get; private set; } = "en-GB";
+
+        /// <summary>
+        /// Constructor
+        /// </summary>
+        /// <param name="culture">Culture</param>
+        /// <param name="fallbackCulture"></param>
+        public Translator(string culture, string fallbackCulture)
         {
-            if (translatorInterface != null)
+            if (culture != null)
             {
-                if (languageResourceManager == null)
+                Culture = culture;
+            }
+            if (fallbackCulture != null)
+            {
+                FallbackCulture = fallbackCulture;
+            }
+        }
+
+        /// <summary>
+        /// Initialize languages
+        /// </summary>
+        private void InitLanguages()
+        {
+            if (languages == null)
+            {
+                languages = new Dictionary<string, LanguageData>();
+                if (Directory.Exists(languagesDirectory))
                 {
                     try
                     {
-                        Assembly a = Assembly.Load(translatorInterface.AssemblyName);
-                        languageResourceManager = new ResourceManager(translatorInterface.AssemblyName + ".Languages." + translatorInterface.Language, a);
+                        string[] language_files = Directory.GetFiles(languagesDirectory, "*-*.json", SearchOption.AllDirectories);
+                        if (language_files != null)
+                        {
+                            foreach (string language_file in language_files)
+                            {
+                                if (language_file != null)
+                                {
+                                    try
+                                    {
+                                        using (FileStream file_stream = File.OpenRead(language_file))
+                                        {
+                                            LanguageData language_data = serializer.ReadObject(file_stream) as LanguageData;
+                                            if (language_data != null)
+                                            {
+                                                string culture = Path.GetFileNameWithoutExtension(language_file);
+                                                if (languages.ContainsKey(culture))
+                                                {
+                                                    languages[culture] = language_data;
+                                                }
+                                                else
+                                                {
+                                                    languages.Add(culture, language_data);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    catch (Exception e)
+                                    {
+                                        Console.Error.WriteLine(e);
+                                    }
+                                }
+                            }
+                        }
                     }
                     catch (Exception e)
                     {
-                        Console.Error.WriteLine(e.Message);
-                    }
-                }
-                if (fallbackLanguageResourceManager == null)
-                {
-                    try
-                    {
-                        Assembly a = Assembly.Load(translatorInterface.AssemblyName);
-                        fallbackLanguageResourceManager = new ResourceManager(translatorInterface.AssemblyName + ".Languages." + translatorInterface.FallbackLanguage, a);
-                    }
-                    catch (Exception e)
-                    {
-                        Console.Error.WriteLine(e.Message);
+                        Console.Error.WriteLine(e);
                     }
                 }
             }
         }
 
         /// <summary>
-        /// Try translatie
+        /// Try translate
         /// </summary>
         /// <param name="input">Input</param>
         /// <param name="output">Output</param>
-        /// <returns>Success</returns>
-        public static bool TryTranslate(string input, out string output)
+        /// <returns>"true" if successful, otherwise "false"</returns>
+        public bool TryTranslate(string input, out string output)
         {
             bool ret = false;
             output = input;
-            if (input.StartsWith("{$") && input.EndsWith("$}") && (input.Length > 4))
+            if (input != null)
             {
-                output = GetTranslation(input.Substring(2, input.Length - 4));
-                ret = (input != output);
+                InitLanguages();
+                if (input.StartsWith("{$") && input.EndsWith("$}") && (input.Length > 4))
+                {
+                    output = GetTranslation(input.Substring(2, input.Length - 4));
+                    ret = (input != output);
+                }
             }
             return ret;
         }
 
         /// <summary>
-        /// Load language
+        /// Translate controls
         /// </summary>
         /// <param name="parent">Parent control</param>
-        private static void LoadLanguage(Control parent)
+        public void TranslateControls(Control parent)
         {
+            InitLanguages();
             try
             {
-                string translated = "";
-                InitLanguage();
-                IEnumerable<Control> controls = GetSelfAndChildrenRecursive(parent);
-                foreach (Control c in controls)
+                if (parent != null)
                 {
-                    if (TryTranslate(c.Text, out translated))
+                    string translated = "";
+                    InitLanguages();
+                    IEnumerable<Control> controls = GetSelfAndChildrenRecursive(parent);
+                    foreach (Control c in controls)
                     {
-                        c.Text = translated;
-                    }
-                    IEnumerable<ToolStripMenuItem> tsmis = GetAllToolStripMenuItemsRecursive(c.ContextMenuStrip);
-                    foreach (ToolStripMenuItem tsmi in tsmis)
-                    {
-                        if (TryTranslate(tsmi.Text, out translated))
+                        if (TryTranslate(c.Text, out translated))
                         {
-                            tsmi.Text = translated;
+                            c.Text = translated;
                         }
-                    }
-                    if (c is ComboBox)
-                    {
-                        ComboBox cb = (ComboBox)c;
-                        for (int i = 0; i < cb.Items.Count; i++)
+                        IEnumerable<ToolStripMenuItem> tsmis = GetAllToolStripMenuItemsRecursive(c.ContextMenuStrip);
+                        foreach (ToolStripMenuItem tsmi in tsmis)
                         {
-                            if (cb.Items[i] is string)
+                            if (TryTranslate(tsmi.Text, out translated))
                             {
-                                if (TryTranslate((string)(cb.Items[i]), out translated))
+                                tsmi.Text = translated;
+                            }
+                        }
+                        if (c is ComboBox)
+                        {
+                            ComboBox cb = (ComboBox)c;
+                            for (int i = 0; i < cb.Items.Count; i++)
+                            {
+                                if (cb.Items[i] is string)
                                 {
-                                    cb.Items[i] = translated;
+                                    if (TryTranslate((string)(cb.Items[i]), out translated))
+                                    {
+                                        cb.Items[i] = translated;
+                                    }
+                                }
+                                else if (cb.Items[i] is ITranslatable)
+                                {
+                                    if (TryTranslate(((ITranslatable)(cb.Items[i])).TranslatableText, out translated))
+                                    {
+                                        ((ITranslatable)(cb.Items[i])).TranslatableText = translated;
+                                    }
                                 }
                             }
-                            else if (cb.Items[i] is ITranslatable)
+                        }
+                        else if (c is ListView)
+                        {
+                            ListView lv = (ListView)c;
+                            foreach (ColumnHeader col in lv.Columns)
                             {
-                                if (TryTranslate(((ITranslatable)(cb.Items[i])).TranslatableText, out translated))
+                                if (TryTranslate(col.Text, out translated))
                                 {
-                                    ((ITranslatable)(cb.Items[i])).TranslatableText = translated;
+                                    col.Text = translated;
+                                }
+                            }
+                            foreach (ListViewGroup grp in lv.Groups)
+                            {
+                                if (TryTranslate(grp.Header, out translated))
+                                {
+                                    grp.Header = translated;
                                 }
                             }
                         }
-                    }
-                    else if (c is ListView)
-                    {
-                        ListView lv = (ListView)c;
-                        foreach (ColumnHeader col in lv.Columns)
+                        else if (c is ToolStrip)
                         {
-                            if (TryTranslate(col.Text, out translated))
+                            foreach (ToolStripItem tsi in ((ToolStrip)c).Items)
                             {
-                                col.Text = translated;
-                            }
-                        }
-                        foreach (ListViewGroup grp in lv.Groups)
-                        {
-                            if (TryTranslate(grp.Header, out translated))
-                            {
-                                grp.Header = translated;
-                            }
-                        }
-                    }
-                    else if (c is ToolStrip)
-                    {
-                        foreach (ToolStripItem tsi in ((ToolStrip)c).Items)
-                        {
-                            if (TryTranslate(tsi.Text, out translated))
-                            {
-                                tsi.Text = translated;
+                                if (TryTranslate(tsi.Text, out translated))
+                                {
+                                    tsi.Text = translated;
+                                }
                             }
                         }
                     }
@@ -187,79 +235,46 @@ namespace WinFormsTranslator
         /// </summary>
         /// <param name="key">Key</param>
         /// <returns>Value</returns>
-        public static string GetTranslation(string key)
+        public string GetTranslation(string key)
         {
             string ret = null;
-            if (languageResourceManager != null)
+            if (key != null)
             {
-                try
+                if (Languages.ContainsKey(Culture))
                 {
-                    ret = languageResourceManager.GetString(key);
-                }
-                catch (Exception e)
-                {
-                    Console.Error.WriteLine(e.Message);
-                }
-                if (ret == null)
-                {
-                    if (fallbackLanguageResourceManager != null)
+                    LanguageData language = Languages[Culture];
+                    if (language != null)
                     {
-                        try
+                        if (language.Translations.ContainsKey(key))
                         {
-                            ret = fallbackLanguageResourceManager.GetString(key);
-                        }
-                        catch (Exception e)
-                        {
-                            Console.Error.WriteLine(e.Message);
+                            ret = language.Translations[key];
                         }
                     }
                 }
-            }
-            else if (fallbackLanguageResourceManager != null)
-            {
-                try
+                if (ret == null)
                 {
-                    ret = fallbackLanguageResourceManager.GetString(key);
+                    if (Languages.ContainsKey(FallbackCulture))
+                    {
+                        LanguageData language = Languages[FallbackCulture];
+                        if (language != null)
+                        {
+                            if (language.Translations.ContainsKey(key))
+                            {
+                                ret = language.Translations[key];
+                            }
+                        }
+                    }
                 }
-                catch (Exception e)
+                if (ret == null)
                 {
-                    Console.Error.WriteLine(e.Message);
+                    ret = "{$" + key + "$}";
                 }
             }
-            if (ret == null)
+            else
             {
-                ret = "{$" + key + "$}";
+                ret = "{$NULL$}";
             }
             return ret;
-        }
-
-        /// <summary>
-        /// Change language
-        /// </summary>
-        /// <param name="language">Language</param>
-        /// <returns>Success</returns>
-        public static bool ChangeLanguage(Language language)
-        {
-            bool ret = false;
-            if (translatorInterface.Language != language.Culture)
-            {
-                translatorInterface.Language = language.Culture;
-                translatorInterface.SaveSettings();
-                ret = true;
-            }
-            return ret;
-        }
-
-        /// <summary>
-        /// Load translation
-        /// </summary>
-        /// <param name="parent">Parent control</param>
-        public static void LoadTranslation(Control parent)
-        {
-            if (translatorInterface != null)
-            {
-                LoadLanguage(parent);
-            }
         }
 
         /// <summary>
@@ -342,25 +357,28 @@ namespace WinFormsTranslator
         /// <param name="exclusions">Exclusions</param>
         public static void EnumToComboBox<T>(ComboBox comboBox, T[] exclusions)
         {
-            comboBox.Items.Clear();
-            Array arr = Enum.GetValues(typeof(T));
-            foreach (var e in arr)
+            if (comboBox != null)
             {
-                bool s = true;
-                if (exclusions != null)
+                comboBox.Items.Clear();
+                Array arr = Enum.GetValues(typeof(T));
+                foreach (var e in arr)
                 {
-                    foreach (var ex in exclusions)
+                    bool s = true;
+                    if (exclusions != null)
                     {
-                        if (ex.Equals(e))
+                        foreach (var ex in exclusions)
                         {
-                            s = false;
-                            break;
+                            if (ex.Equals(e))
+                            {
+                                s = false;
+                                break;
+                            }
                         }
                     }
-                }
-                if (s)
-                {
-                    comboBox.Items.Add(e);
+                    if (s)
+                    {
+                        comboBox.Items.Add(e);
+                    }
                 }
             }
         }
@@ -373,10 +391,13 @@ namespace WinFormsTranslator
         /// <param name="items">Items</param>
         public static void EnumerableToComboBox<T>(ComboBox comboBox, IEnumerable<T> items)
         {
-            comboBox.Items.Clear();
-            foreach (var item in items)
+            if (comboBox != null)
             {
-                comboBox.Items.Add(item);
+                comboBox.Items.Clear();
+                foreach (var item in items)
+                {
+                    comboBox.Items.Add(item);
+                }
             }
         }
     }
